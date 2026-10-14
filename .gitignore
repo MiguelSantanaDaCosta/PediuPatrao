@@ -1,1 +1,7 @@
-/build/
+/target/
+.env
+.env.local
+combinado.txt
+test.sh
+fix.sh
+src/main/resources/application-local.properties
