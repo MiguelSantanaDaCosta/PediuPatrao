@@ -23,10 +23,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.config.StateMachineFactory;
 import org.springframework.statemachine.support.DefaultStateMachineContext;
-import org.springframework.statemachine.support.StateMachineEventResult;
+import org.springframework.statemachine.StateMachineEventResult;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
-
+import com.umc.pediupatrao.exception.JustificativaInvalidaException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -99,7 +99,7 @@ public class PedidoService {
         if (evento == EventoPedido.CANCELAR){
             throw new TransicaoInvalidaException(
                     "Cancelamento deve ser feito via aplicar cancelameto"
-                    )
+                    );
         }
         Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido não encontrado."));
