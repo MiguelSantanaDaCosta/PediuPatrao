@@ -1,16 +1,25 @@
 package com.umc.pediupatrao.controller;
 
-import com.umc.pediupatrao.entity.Pedido;
-import org.javers.core.Javers;
-import org.javers.core.commit.CommitMetadata;
-import org.javers.core.diff.Change;
-import org.javers.repository.jql.QueryBuilder;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
+import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.javers.core.Javers;
+import org.javers.core.commit.CommitMetadata;
+import org.javers.core.diff.Change;
+import org.javers.core.diff.changetype.PropertyChange;
+import org.javers.core.metamodel.object.CdoSnapshot;
+import org.javers.repository.jql.QueryBuilder;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.umc.pediupatrao.entity.Pedido;
 
 @RestController
 @RequestMapping("/api/auditoria")
@@ -34,25 +43,41 @@ public class AuditoriaController {
 
     /** Snapshot do pedido em um commit específico. */
     @GetMapping("/pedidos/{id}/snapshot")
-    public Pedido snapshot(@PathVariable String id,
-                           @RequestParam long commitId) {
+    public Map<String, Object> snapshot(@PathVariable String id,
+            @RequestParam long commitId) {
         var q = QueryBuilder.byInstanceId(id, Pedido.class)
-                            .withCommitId(commitId)
-                            .build();
-        return javers.findSnapshots(q).stream()
+                .withCommitId(BigDecimal.valueOf(commitId))
+                .build();
+
+        CdoSnapshot snap = javers.findSnapshots(q).stream()
                 .findFirst()
-                .map(s -> (Pedido) s.getState())
                 .orElse(null);
+
+        if (snap == null) {
+            return null;
+        }
+
+        CommitMetadata meta = snap.getCommitMetadata();
+
+        Map<String, Object> out = new HashMap<>();
+        out.put("commitId", snap.getCommitId().valueAsNumber().toPlainString());
+        out.put("author", meta == null ? "SISTEMA" : meta.getAuthor());
+        out.put("date", meta == null ? "" : meta.getCommitDate().toString());
+        out.put("entity", snap.getGlobalId().getTypeName());
+        out.put("state", snap.getState().toString());
+        return out;
     }
 
     private Map<String, Object> toDto(Change c) {
-        CommitMetadata meta = c.getCommitMetadata();
-        return Map.of(
-                "tipo", c.getClass().getSimpleName(),
-                "propriedade", c.getPropertyName(),
-                "autor", meta.getAuthor(),
-                "quando", meta.getCommitDate().toString(),
-                "commitId", meta.getId().valueAsNumber()
-        );
+        CommitMetadata meta = c.getCommitMetadata().orElse(null);
+        String propriedade = (c instanceof PropertyChange pc) ? pc.getPropertyName() : null;
+
+        Map<String, Object> dto = new HashMap<>();
+        dto.put("tipo", c.getClass().getSimpleName());
+        dto.put("propriedade", propriedade == null ? "" : propriedade);
+        dto.put("autor", meta == null ? "SISTEMA" : meta.getAuthor());
+        dto.put("quando", meta == null ? "" : meta.getCommitDate().toString());
+        dto.put("commitId", meta == null ? "" : meta.getId().valueAsNumber().toPlainString());
+        return dto;
     }
 }
