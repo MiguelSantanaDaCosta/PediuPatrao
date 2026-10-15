@@ -6,6 +6,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import jakarta.validation.ConstraintViolationException;
+
 
 import java.util.HashMap;
 import java.util.Map;
@@ -46,5 +50,28 @@ public class GlobalExceptionHandler {
                 .forEach(f -> campos.put(f.getField(), f.getDefaultMessage()));
         body.put("campos", campos);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, String>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+            "erro", "PARAMETRO_INVALIDO",
+            "mensagem", "Parâmetro inválido: " + e.getName()));
+}
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, String>> handleNotReadable(HttpMessageNotReadableException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+            "erro", "CORPO_INVALIDO",
+            "mensagem", "Corpo da requisição inválido ou malformado."));
+}
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraint(ConstraintViolationException e) {
+        Map<String, String> campos = new HashMap<>();
+        e.getConstraintViolations().forEach(v -> campos.put(v.getPropertyPath().toString(), v.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+            "erro", "VALIDACAO", "campos", campos));
     }
 }

@@ -7,6 +7,9 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.umc.pediupatrao.entity.enums.Role;
+
+
 
 @Document(collection = "usuarios")
 @Getter
