@@ -1,0 +1,14 @@
+package com.umc.pediupatrao.entity.enums;
+
+public enum TipoOperacao {
+    INCLUSAO_PEDIDO,
+    ALTERACAO_STATUS,
+    DESCONTO,
+    CANCELAMENTO,
+    INCLUSAO_CLIENTE,
+    ALTERACAO_CLIENTE,
+    EXCLUSAO_CLIENTE,
+    ALTERACAO_USUARIO,
+    INCLUSAO_USUARIO,
+    EXCLUSAO_USUARIO
+}
