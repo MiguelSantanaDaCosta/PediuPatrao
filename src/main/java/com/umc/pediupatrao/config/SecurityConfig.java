@@ -15,10 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-
-@Configuration
-@EnableWebSecurity
-@EnableMethodSecurity
+import org.springframework.http.HttpMethod;
 public class SecurityConfig {
 
     private final UsuarioDetailsService usuarioDetailsService;
@@ -67,11 +64,15 @@ public class SecurityConfig {
                 .requestMatchers("/api/pedidos/**", "/pedidos/**")
                     .hasAnyRole("ATENDENTE", "GERENTE", "ADMIN")
 
-                // Clientes / Produtos
-                .requestMatchers("/api/clientes/**", "/clientes/**")
+                // Produtos — leitura liberada para ATENDENTE; escrita só GERENTE/ADMIN
+                .requestMatchers(HttpMethod.GET, "/api/produtos/**", "/produtos/**")
                     .hasAnyRole("ATENDENTE", "GERENTE", "ADMIN")
                 .requestMatchers("/api/produtos/**", "/produtos/**")
                     .hasAnyRole("GERENTE", "ADMIN")
+
+                // Clientes
+                .requestMatchers("/api/clientes/**", "/clientes/**")
+                    .hasAnyRole("ATENDENTE", "GERENTE", "ADMIN")
 
                 .anyRequest().authenticated()
             )
