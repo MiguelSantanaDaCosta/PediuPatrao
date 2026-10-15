@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
-
+import com.umc.pediupatrao.dto.ClienteDTO;
 @Service
 public class ClienteService {
 
@@ -44,6 +44,19 @@ public class ClienteService {
                 throw new IllegalArgumentException("Cliente não encontrado para atualização.");
             }
         }
+    }
+
+
+    public ClienteResponse criar(ClienteDTO dto) {
+        Cliente c = mapper.toEntity(dto);
+        return mapper.toResponse(repo.save(c));
+    }
+
+    public ClienteResponse atualizar(String id, ClienteDTO dto) {
+        Cliente c = repo.findById(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente não encontrado."));
+        mapper.updateEntity(dto, c);
+    return mapper.toResponse(repo.save(c));
     }
 
 }

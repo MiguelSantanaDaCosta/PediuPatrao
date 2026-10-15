@@ -5,6 +5,8 @@ import com.umc.pediupatrao.repository.ProdutoRepository;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.umc.pediupatrao.dto.ProdutoDTO;
+
 
 @Service
 public class ProdutoService {
@@ -37,8 +39,23 @@ public class ProdutoService {
             if (produtoRepository.existsById(produto.getId())) {
                 return produtoRepository.save(produto);  // Atualiza o cliente existente
             } else {
-                throw new IllegalArgumentException("Cliente não encontrado para atualização.");
+                throw new IllegalArgumentException("Produto não encontrado para atualização.");
             }
         }
+    }
+
+
+
+    public ProdutoResponse criar(ProdutoDTO dto) {
+        Produto p = mapper.toEntity(dto);
+        if (p.getAtivo() == null) p.setAtivo(true);
+    return mapper.toResponse(repo.save(p));
+    }
+
+    public ProdutoResponse atualizar(String id, ProdutoDTO dto) {
+        Produto p = repo.findById(id)
+            .orElseThrow(() -> new RecursoNaoEncontradoException("Produto não encontrado para atualização."));
+        mapper.updateEntity(dto, p);
+        return mapper.toResponse(repo.save(p));
     }
 }

@@ -4,6 +4,8 @@ import com.umc.pediupatrao.entity.Usuario;
 import com.umc.pediupatrao.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.umc.pediupatrao.dto.UsuarioDTO;
+
 
 import java.util.Optional;
 
@@ -57,5 +59,28 @@ public class UsuarioService {
 
             usuarioRepository.save(usuarioExistente);
         });
+    }
+
+
+    public UsuarioResponse criar(UsuarioDTO dto) {
+        if (dto.getPassword() == null || dto.getPassword().isBlank()) {
+            throw new IllegalArgumentException("Senha é obrigatória na criação de usuário.");
+        }
+        if (repo.findByUsername(dto.getUsername()).isPresent()) {
+            throw new IllegalArgumentException("Username já existe.");
+        }
+        Usuario u = mapper.toEntity(dto);
+        u.setPassword(encoder.encode(dto.getPassword()));
+        return mapper.toResponse(repo.save(u));
+    }
+
+    public UsuarioResponse atualizar(String id, UsuarioDTO dto) {
+        Usuario u = repo.findById(id)
+            .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário não encontrado."));
+        mapper.updateEntity(dto, u);
+        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
+            u.setPassword(encoder.encode(dto.getPassword()));
+        }
+        return mapper.toResponse(repo.save(u));
     }
 }
