@@ -1,21 +1,26 @@
-package com.umc.pediupatro.dto;
-
+package com.umc.pediupatrao.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
-import java.util.List;
 
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
-public class PedidoRequest{
-    @NotBlank(message = "O ID do cliente é obrigatorio")
-    private String clienteID;
-    @NotEmpty(message = "O pedido deve ter ao menos 1 item")
-    @Valid
-    private List<ItemPedidoDTO> itens;
+@NoArgsConstructor
+@AllArgsConstructor
+public class PedidoRequest {
 
+    @NotBlank(message = "O clienteId é obrigatório")
+    private String clienteId;
+
+    @NotEmpty(message = "O pedido deve conter ao menos um item")
+    @Valid
+    private List<ItemPedidoDTO> itens = new ArrayList<>();
 }

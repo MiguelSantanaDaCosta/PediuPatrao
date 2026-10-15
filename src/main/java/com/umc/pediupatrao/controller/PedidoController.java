@@ -1,8 +1,10 @@
 package com.umc.pediupatrao.controller;
 
+import com.umc.pediupatrao.dto.PedidoRequest;
 import com.umc.pediupatrao.entity.Pedido;
-import com.umc.pediupatrao.entity.enums.StatusPedido;
+import com.umc.pediupatrao.entity.enums.EventoPedido;
 import com.umc.pediupatrao.service.PedidoService;
+import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,15 +34,20 @@ public class PedidoController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ATENDENTE','GERENTE','ADMIN')")
-    public Pedido criar(@Valid @RequestBody PedidoRequest request){
+    public Pedido criar(@Valid @RequestBody PedidoRequest request) {
         return pedidoService.criarPedido(request);
     }
-    
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ATENDENTE','GERENTE','ADMIN')")
     public Pedido processarEvento(@PathVariable String id,
                                   @RequestParam EventoPedido evento) {
+
+        if (evento == EventoPedido.CANCELAR){
+            throw new TransicaoInvalidoException(
+                    "Use POST /api/pedidos/{id}/cancelar para cancelar o pedido"
+                    )
+        }
         return pedidoService.processarEvento(id, evento);
     }
 
