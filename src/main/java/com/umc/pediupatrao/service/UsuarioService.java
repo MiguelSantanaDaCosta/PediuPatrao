@@ -1,66 +1,71 @@
 package com.umc.pediupatrao.service;
 
-import com.umc.pediupatrao.entity.Usuario;
-import com.umc.pediupatrao.repository.UsuarioRepository;
+import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
 import com.umc.pediupatrao.dto.UsuarioDTO;
-
-
-import java.util.Optional;
+import com.umc.pediupatrao.dto.UsuarioResponse;
+import com.umc.pediupatrao.entity.Usuario;
+import com.umc.pediupatrao.exception.RecursoNaoEncontradoException;
+import com.umc.pediupatrao.mapper.UsuarioMapper;
+import com.umc.pediupatrao.repository.UsuarioRepository;
 
 @Service
 public class UsuarioService {
 
-    private final UsuarioRepository usuarioRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final UsuarioRepository repo;
+    private final UsuarioMapper mapper;
+    private final PasswordEncoder encoder;
 
-    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
-        this.usuarioRepository = usuarioRepository;
-        this.passwordEncoder = passwordEncoder;
+    public UsuarioService(UsuarioRepository repo, UsuarioMapper mapper, PasswordEncoder encoder) {
+        this.repo = repo;
+        this.mapper = mapper;
+        this.encoder = encoder;
     }
 
-    // Busca um usuário por ID
     public Optional<Usuario> buscarPorId(String id) {
-        return usuarioRepository.findById(id);
+        return repo.findById(id);
     }
 
-    // Busca um usuário por username
     public Optional<Usuario> buscarPorUsername(String username) {
-        return usuarioRepository.findByUsername(username);
+        return repo.findByUsername(username);
     }
 
-    // Salva um novo usuário (criptografando a senha)
     public void salvarUsuario(Usuario usuario) {
-        usuario.setPassword(passwordEncoder.encode(usuario.getPassword())); // Criptografa a senha
-        usuarioRepository.save(usuario);
+        usuario.setPassword(encoder.encode(usuario.getPassword()));
+        repo.save(usuario);
     }
 
-    // Deleta um usuário pelo ID
     public void deletarUsuario(String id) {
-        usuarioRepository.deleteById(id);
+        repo.deleteById(id);
     }
 
-    // Lista todos os usuários
     public Iterable<Usuario> listarTodos() {
-        return usuarioRepository.findAll();
+        return repo.findAll();
     }
 
-    // Atualiza o usuário usuários
+    public Page<UsuarioResponse> listar(Pageable pageable) {
+        return repo.findAll(pageable).map(mapper::toResponse);
+    }
+
+    public void deletar(String id) {
+        repo.deleteById(id);
+    }
+
     public void atualizarUsuario(String id, Usuario usuarioAtualizado) {
-        usuarioRepository.findById(id).ifPresent(usuarioExistente -> {
+        repo.findById(id).ifPresent(usuarioExistente -> {
             usuarioExistente.setUsername(usuarioAtualizado.getUsername());
             usuarioExistente.setRole(usuarioAtualizado.getRole());
-
-            // Só atualiza a senha se uma nova foi informada
             if (usuarioAtualizado.getPassword() != null && !usuarioAtualizado.getPassword().isBlank()) {
-                usuarioExistente.setPassword(passwordEncoder.encode(usuarioAtualizado.getPassword()));
+                usuarioExistente.setPassword(encoder.encode(usuarioAtualizado.getPassword()));
             }
-
-            usuarioRepository.save(usuarioExistente);
+            repo.save(usuarioExistente);
         });
     }
-
 
     public UsuarioResponse criar(UsuarioDTO dto) {
         if (dto.getPassword() == null || dto.getPassword().isBlank()) {
@@ -76,7 +81,7 @@ public class UsuarioService {
 
     public UsuarioResponse atualizar(String id, UsuarioDTO dto) {
         Usuario u = repo.findById(id)
-            .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário não encontrado."));
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário não encontrado."));
         mapper.updateEntity(dto, u);
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             u.setPassword(encoder.encode(dto.getPassword()));

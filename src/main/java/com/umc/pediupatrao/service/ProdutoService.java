@@ -1,60 +1,60 @@
 package com.umc.pediupatrao.service;
 
-import com.umc.pediupatrao.entity.Produto;
-import com.umc.pediupatrao.repository.ProdutoRepository;
-import org.springframework.stereotype.Service;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Autowired;
-import com.umc.pediupatrao.dto.ProdutoDTO;
 
+import org.springframework.stereotype.Service;
+
+import com.umc.pediupatrao.dto.ProdutoDTO;
+import com.umc.pediupatrao.dto.ProdutoResponse;
+import com.umc.pediupatrao.entity.Produto;
+import com.umc.pediupatrao.exception.RecursoNaoEncontradoException;
+import com.umc.pediupatrao.mapper.ProdutoMapper;
+import com.umc.pediupatrao.repository.ProdutoRepository;
 
 @Service
 public class ProdutoService {
 
-    @Autowired
-    private ProdutoRepository produtoRepository;
+    private final ProdutoRepository repo;
+    private final ProdutoMapper mapper;
+
+    public ProdutoService(ProdutoRepository repo, ProdutoMapper mapper) {
+        this.repo = repo;
+        this.mapper = mapper;
+    }
 
     public Produto novoProduto(Produto produto) {
-        return produtoRepository.save(produto);
+        return repo.save(produto);
     }
 
     public List<Produto> listarProdutos() {
-        return produtoRepository.findAll();
+        return repo.findAll();
     }
 
-    // Método para excluir cliente
     public void excluir(String id) {
-        produtoRepository.deleteById(id);
+        repo.deleteById(id);
     }
 
-
-    // Método para salvar um novo cliente ou atualizar um cliente existente
     public Produto salvar(Produto produto) {
-        // Se o cliente não tem ID (novo cliente), salva como novo
         if (produto.getId() == null) {
-            return produtoRepository.save(produto);  // Cria um novo cliente
-        } // Se já tem ID (cliente existente), atualiza
-        else {
-            // Verifica se o cliente existe antes de atualizar
-            if (produtoRepository.existsById(produto.getId())) {
-                return produtoRepository.save(produto);  // Atualiza o cliente existente
-            } else {
-                throw new IllegalArgumentException("Produto não encontrado para atualização.");
-            }
+            return repo.save(produto);
         }
+        if (repo.existsById(produto.getId())) {
+            return repo.save(produto);
+        }
+        throw new IllegalArgumentException("Produto não encontrado para atualização.");
     }
-
-
 
     public ProdutoResponse criar(ProdutoDTO dto) {
         Produto p = mapper.toEntity(dto);
-        if (p.getAtivo() == null) p.setAtivo(true);
-    return mapper.toResponse(repo.save(p));
+        if (p.getAtivo() == null) {
+            p.setAtivo(true);
+        }
+        return mapper.toResponse(repo.save(p));
     }
 
     public ProdutoResponse atualizar(String id, ProdutoDTO dto) {
         Produto p = repo.findById(id)
-            .orElseThrow(() -> new RecursoNaoEncontradoException("Produto não encontrado para atualização."));
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Produto não encontrado para atualização."));
         mapper.updateEntity(dto, p);
         return mapper.toResponse(repo.save(p));
     }

@@ -1,51 +1,53 @@
 package com.umc.pediupatrao.service;
 
-import com.umc.pediupatrao.entity.Cliente;
-import com.umc.pediupatrao.repository.ClienteRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.stereotype.Service;
+
 import com.umc.pediupatrao.dto.ClienteDTO;
+import com.umc.pediupatrao.dto.ClienteResponse;
+import com.umc.pediupatrao.entity.Cliente;
+import com.umc.pediupatrao.exception.RecursoNaoEncontradoException;
+import com.umc.pediupatrao.mapper.ClienteMapper;
+import com.umc.pediupatrao.repository.ClienteRepository;
+
 @Service
 public class ClienteService {
 
-    @Autowired
-    private ClienteRepository clienteRepository;
+    private final ClienteRepository repo;
+    private final ClienteMapper mapper;
+
+    public ClienteService(ClienteRepository repo, ClienteMapper mapper) {
+        this.repo = repo;
+        this.mapper = mapper;
+    }
 
     public Cliente novoCliente(Cliente cliente) {
-        return clienteRepository.save(cliente);
+        return repo.save(cliente);
     }
 
     public List<Cliente> listarClientes() {
-        return clienteRepository.findAll();
+        return repo.findAll();
     }
 
-    // Método para excluir cliente
     public void excluir(String id) {
-        clienteRepository.deleteById(id);
+        repo.deleteById(id);
     }
 
     public Optional<Cliente> buscarPorId(String id) {
-        return clienteRepository.findById(id);
+        return repo.findById(id);
     }
 
-    // Método para salvar um novo cliente ou atualizar um cliente existente
     public Cliente salvar(Cliente cliente) {
-        // Se o cliente não tem ID (novo cliente), salva como novo
         if (cliente.getId() == null) {
-            return clienteRepository.save(cliente);  // Cria um novo cliente
-        } // Se já tem ID (cliente existente), atualiza
-        else {
-            // Verifica se o cliente existe antes de atualizar
-            if (clienteRepository.existsById(cliente.getId())) {
-                return clienteRepository.save(cliente);  // Atualiza o cliente existente
-            } else {
-                throw new IllegalArgumentException("Cliente não encontrado para atualização.");
-            }
+            return repo.save(cliente);
         }
+        if (repo.existsById(cliente.getId())) {
+            return repo.save(cliente);
+        }
+        throw new RecursoNaoEncontradoException("Cliente não encontrado para atualização.");
     }
-
 
     public ClienteResponse criar(ClienteDTO dto) {
         Cliente c = mapper.toEntity(dto);
@@ -56,7 +58,6 @@ public class ClienteService {
         Cliente c = repo.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente não encontrado."));
         mapper.updateEntity(dto, c);
-    return mapper.toResponse(repo.save(c));
+        return mapper.toResponse(repo.save(c));
     }
-
 }
