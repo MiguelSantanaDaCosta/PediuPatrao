@@ -23,6 +23,7 @@ import java.util.List;
 @Service
 public class PedidoService {
 
+    private final StateMachineFactory<StatusPedido, EventoPedido> stateMachineFactory;
     private final PedidoRepository pedidoRepository;
     private final ClienteRepository clienteRepository;
     private final ProdutoRepository produtoRepository;
@@ -32,6 +33,7 @@ public class PedidoService {
                          ClienteRepository clienteRepository,
                          ProdutoRepository produtoRepository,
                          AuditoriaService auditoriaService) {
+        this.stateMachineFactory = stateMachineFactory;
         this.pedidoRepository = pedidoRepository;
         this.clienteRepository = clienteRepository;
         this.produtoRepository = produtoRepository;
@@ -39,72 +41,72 @@ public class PedidoService {
     }
 
     // RN02 criação com cálculo server-side
-    public Pedido criarPedido(Pedido pedido) {
-        if (pedido.getItens() == null || pedido.getItens().isEmpty()) {
-            throw new RecursoNaoEncontradoException("Pedido deve ter ao menos 1 item.");
+        public Pedido criarPedido(PedidoRequest request) {
+                if (!clienteRepository.existsById(request.getClienteId())) {
+                        throw new RecursoNaoEncontradoException("Cliente inexistente.");
+                }
+
+                Pedido pedido = mapper.toEntity(request);
+
+                for (int i = 0; i < request.getItens().size(); i++) {
+                        ItemPedidoDTO dto = request.getItens().get(i);
+                        ItemPedido item = pedido.getItens().get(i);
+
+                        Produto p = produtoRepository.findById(dto.getProdutoId())
+                                .orElseThrow(() -> new RecursoNaoEncontradoException(
+                                                "Produto não encontrado: " + dto.getProdutoId()));
+                        if (Boolean.FALSE.equals(p.getAtivo())) {
+                                throw new RecursoNaoEncontradoException("Produto inativo: " + p.getNome());
+                        }
+                        item.setNomeProduto(p.getNome());
+                        item.setPrecoUnitario(p.getPreco());
+                        item.recalcularSubtotal();
+                }
+
+                pedido.setStatus(StatusPedido.RECEBIDO);
+                pedido.setDataHoraEntrada(LocalDateTime.now());
+                pedido.setResponsavelRegistro(getUsuarioLogado());
+                pedido.setDescontoPercentual(0.0);
+                calcularTotal(pedido);
+
+                return pedidoRepository.save(pedido);
+    // retirando o auditoriaService JaVers intercepta automaticamente
         }
-        if (!clienteRepository.existsById(pedido.getClienteId())) {
-            throw new RecursoNaoEncontradoException("Cliente inexistente.");
-        }
-
-        for (ItemPedido item : pedido.getItens()) {
-            Produto p = produtoRepository.findById(item.getProdutoId())
-                    .orElseThrow(() -> new RecursoNaoEncontradoException(
-                            "Produto não encontrado: " + item.getProdutoId()));
-            if (Boolean.FALSE.equals(p.getAtivo())) {
-                throw new RecursoNaoEncontradoException("Produto inativo: " + p.getNome());
-            }
-            item.setNomeProduto(p.getNome());
-            item.setPrecoUnitario(p.getPreco());
-            item.recalcularSubtotal();
-        }
-
-        pedido.setStatus(StatusPedido.RECEBIDO);
-        pedido.setDataHoraEntrada(LocalDateTime.now());
-        pedido.setResponsavelRegistro(getUsuarioLogado());
-        pedido.setDescontoPercentual(0.0);
-        calcularTotal(pedido);
-
-        Pedido salvo = pedidoRepository.save(pedido);
-
-        auditoriaService.registrar(
-                TipoOperacao.INCLUSAO_PEDIDO, "Pedido", salvo.getId(),
-                List.of(new AlteracaoCampo("valorTotal", null,
-                        String.valueOf(salvo.getValorTotal()))),
-                null);
-        return salvo;
-    }
+  
+    
 
     // RN03
-    public Pedido atualizarStatus(String id, StatusPedido novo) {
-        Pedido pedido = pedidoRepository.findById(id)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido não encontrado."));
-        StatusPedido anterior = pedido.getStatus();
+    //
+        public Pedido processarEvento(String id, EventoPedido evento) {
+                Pedido pedido = pedidoRepository.findById(id)
+                        .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido não encontrado."));
 
-        if (anterior.isTerminal()) {
-            throw new TransicaoInvalidaException(
-                    "Pedido em estado terminal (" + anterior + ") não pode ser alterado.");
+                StatusPedido anterior = pedido.getStatus();
+
+                StateMachine<StatusPedido, EventoPedido> sm = stateMachineFactory.getStateMachine(id);
+                sm.stopReactively().block();
+                sm.getStateMachineAccessor().doWithAllRegions(acc -> acc.resetStateMachine(new DefaultStateMachineContext<>(anterior, null, null, null)));
+                sm.startReactively().block();
+
+                boolean aceito = sm.sendEvent(Mono.just(MessageBuilder.withPayload(evento).build())).blockLast().getResultType() == StateMachineEventResult.ResultType.ACCEPTED;
+                sm.stopReactively().block();
+
+                if (!aceito) {
+                        throw new TransicaoInvalidaException(
+                                "Evento " + evento + " não é permitido a partir de " + anterior);
+                }
+
+                StatusPedido novo = sm.getState().getId();
+                pedido.setStatus(novo);
+
+                if (novo == SAIU_PARA_ENTREGA || novo == RETIRADO) {
+                        pedido.setDataHoraSaida(LocalDateTime.now());
+                        pedido.setResponsavelSaida(getUsuarioLogado());
+                }
+
+                return pedidoRepository.save(pedido);
         }
-        if (!anterior.permiteTransicaoPara(novo)) {
-            throw new TransicaoInvalidaException(
-                    "Transição inválida de " + anterior + " para " + novo);
-        }
-
-        pedido.setStatus(novo);
-        if (novo == StatusPedido.SAIU_PARA_ENTREGA || novo == StatusPedido.RETIRADO) {
-            pedido.setDataHoraSaida(LocalDateTime.now());
-            pedido.setResponsavelSaida(getUsuarioLogado());
-        }
-
-        Pedido salvo = pedidoRepository.save(pedido);
-
-        auditoriaService.registrar(
-                TipoOperacao.ALTERACAO_STATUS, "Pedido", id,
-                List.of(new AlteracaoCampo("status",
-                        String.valueOf(anterior), String.valueOf(novo))),
-                null);
-        return salvo;
-    }
+   
 
     // RN04 desconto restrito ao GERENTE
     @PreAuthorize("hasRole('GERENTE')")

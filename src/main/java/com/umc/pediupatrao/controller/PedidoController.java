@@ -32,15 +32,16 @@ public class PedidoController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ATENDENTE','GERENTE','ADMIN')")
-    public Pedido criar(@RequestBody Pedido pedido) {
-        return pedidoService.criarPedido(pedido);
+    public Pedido criar(@Valid @RequestBody PedidoRequest request){
+        return pedidoService.criarPedido(request);
     }
+    
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ATENDENTE','GERENTE','ADMIN')")
-    public Pedido atualizarStatus(@PathVariable String id,
-                                  @RequestParam StatusPedido status) {
-        return pedidoService.atualizarStatus(id, status);
+    public Pedido processarEvento(@PathVariable String id,
+                                  @RequestParam EventoPedido evento) {
+        return pedidoService.processarEvento(id, evento);
     }
 
     @PostMapping("/{id}/desconto")
