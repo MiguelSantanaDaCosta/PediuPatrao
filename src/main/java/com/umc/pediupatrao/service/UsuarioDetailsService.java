@@ -1,5 +1,6 @@
 package com.umc.pediupatrao.service;
 
+import com.umc.pediupatrao.entity.Usuario;
 import com.umc.pediupatrao.repository.UsuarioRepository;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -18,12 +19,15 @@ public class UsuarioDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        return usuarioRepository.findByUsername(username)
-                .map(usuario -> User.builder()
-                        .username(usuario.getUsername())
-                        .password(usuario.getPassword())
-                        .roles("USER") // Adicione roles conforme necessário
-                        .build())
+        Usuario u = usuarioRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
+
+        String roleName = (u.getRole() != null) ? u.getRole().name() : "ATENDENTE";
+
+        return User.builder()
+                .username(u.getUsername())
+                .password(u.getPassword())
+                .roles(roleName)
+                .build();
     }
 }
