@@ -1,0 +1,92 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <title>Auditoria</title>
+  </head>
+  <body>
+    <div th:fragment="content">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+          <i class="bi bi-shield-check me-2 text-primary"></i>Auditoria
+        </h2>
+        <form class="d-flex gap-2" method="get" th:action="@{/auditoria}">
+          <select name="entidade" class="form-select">
+            <option value="" th:selected="${filtro == ''}">
+              Todas as entidades
+            </option>
+            <option value="Pedido" th:selected="${filtro == 'Pedido'}">
+              Pedido
+            </option>
+            <option value="Cliente" th:selected="${filtro == 'Cliente'}">
+              Cliente
+            </option>
+            <option value="Usuario" th:selected="${filtro == 'Usuario'}">
+              Usuário
+            </option>
+          </select>
+          <button type="submit" class="btn btn-primary">Filtrar</button>
+        </form>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-0">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th class="ps-4">Data/hora</th>
+                <th>Usuário</th>
+                <th>Perfil</th>
+                <th>Operação</th>
+                <th>Entidade</th>
+                <th>Alterações</th>
+                <th>Justificativa</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:if="${#lists.isEmpty(auditorias)}">
+                <td colspan="7" class="text-center text-muted py-5">
+                  Nenhum registro de auditoria.
+                </td>
+              </tr>
+              <tr th:each="a : ${auditorias}">
+                <td
+                  class="ps-4 text-nowrap"
+                  th:text="${a.dataHora() != null} ? ${#temporals.format(a.dataHora(), 'dd/MM/yyyy HH:mm:ss')} : '-'"
+                ></td>
+                <td th:text="${a.usuario()}"></td>
+                <td th:text="${a.perfil()}"></td>
+                <td>
+                  <span
+                    class="badge bg-secondary"
+                    th:text="${a.operacao()}"
+                  ></span>
+                </td>
+                <td>
+                  <span th:text="${a.entidade()}"></span><br />
+                  <small class="text-muted" th:text="${a.entidadeId()}"></small>
+                </td>
+                <td class="small">
+                  <div th:each="c : ${a.campos()}">
+                    <strong th:text="${c.campo()}"></strong>:
+                    <span
+                      class="text-danger"
+                      th:text="${c.valorAnterior() != null} ? ${c.valorAnterior()} : '∅'"
+                    ></span>
+                    &rarr;
+                    <span
+                      class="text-success"
+                      th:text="${c.valorNovo() != null} ? ${c.valorNovo()} : '∅'"
+                    ></span>
+                  </div>
+                </td>
+                <td
+                  th:text="${a.justificativa() != null} ? ${a.justificativa()} : '-'"
+                ></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
