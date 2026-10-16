@@ -1,17 +1,12 @@
 package com.umc.pediupatrao.controller;
 
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.umc.pediupatrao.entity.Cliente;
-import com.umc.pediupatrao.entity.Pedido;
-import com.umc.pediupatrao.entity.Produto;
-import com.umc.pediupatrao.entity.Usuario;
-import com.umc.pediupatrao.service.ClienteService;
-import com.umc.pediupatrao.service.PedidoService;
-import com.umc.pediupatrao.service.ProdutoService;
-import com.umc.pediupatrao.service.UsuarioService;
-import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +14,16 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import com.umc.pediupatrao.entity.Cliente;
+import com.umc.pediupatrao.entity.Pedido;
+import com.umc.pediupatrao.entity.Produto;
+import com.umc.pediupatrao.entity.Usuario;
+import com.umc.pediupatrao.exception.DominioException;
+import com.umc.pediupatrao.service.ClienteService;
+import com.umc.pediupatrao.service.PedidoService;
+import com.umc.pediupatrao.service.ProdutoService;
+import com.umc.pediupatrao.service.UsuarioService;
 
 @Controller
 public class HomeController {
@@ -48,9 +53,7 @@ public class HomeController {
         return "layout";
     }
 
-    // ========================
     // USUÁRIOS
-    // ========================
     @GetMapping("/usuarios")
     public String listarUsuarios(Model model) {
         List<Usuario> usuarios = (List<Usuario>) usuarioService.listarTodos();
@@ -79,7 +82,6 @@ public class HomeController {
             redirectAttributes.addFlashAttribute("erro", "Usuário não encontrado.");
             return "redirect:/usuarios";
         }
-
         model.addAttribute("content", "usuarios/form :: content");
         return "layout";
     }
@@ -87,8 +89,12 @@ public class HomeController {
     @PostMapping("/usuarios/salvar")
     public String salvarUsuario(@ModelAttribute Usuario usuario,
             RedirectAttributes redirectAttributes) {
-        usuarioService.salvarUsuario(usuario);
-        redirectAttributes.addFlashAttribute("sucesso", "Usuário criado com sucesso!");
+        try {
+            usuarioService.salvarUsuario(usuario);
+            redirectAttributes.addFlashAttribute("sucesso", "Usuário criado com sucesso!");
+        } catch (DominioException e) {
+            redirectAttributes.addFlashAttribute("erro", e.getMessage());
+        }
         return "redirect:/usuarios";
     }
 
@@ -96,46 +102,58 @@ public class HomeController {
     public String atualizarUsuario(@PathVariable String id,
             @ModelAttribute Usuario usuario,
             RedirectAttributes redirectAttributes) {
-        usuarioService.atualizarUsuario(id, usuario);
-        redirectAttributes.addFlashAttribute("sucesso", "Usuário atualizado com sucesso!");
+        try {
+            usuarioService.atualizarUsuario(id, usuario);
+            redirectAttributes.addFlashAttribute("sucesso", "Usuário atualizado com sucesso!");
+        } catch (DominioException e) {
+            redirectAttributes.addFlashAttribute("erro", e.getMessage());
+        }
         return "redirect:/usuarios";
     }
 
     @PostMapping("/usuarios/deletar/{id}")
     public String deletarUsuario(@PathVariable String id,
             RedirectAttributes redirectAttributes) {
-        usuarioService.deletarUsuario(id);
-        redirectAttributes.addFlashAttribute("sucesso", "Usuário removido com sucesso!");
+        try {
+            usuarioService.deletarUsuario(id);
+            redirectAttributes.addFlashAttribute("sucesso", "Usuário removido com sucesso!");
+        } catch (DominioException e) {
+            redirectAttributes.addFlashAttribute("erro", e.getMessage());
+        }
         return "redirect:/usuarios";
     }
 
-    // ========================
     // PEDIDOS
-    // ========================
     @GetMapping("/pedidos")
     public String pedidos(Model model) {
         List<Pedido> pedidos = pedidoService.listarPedidos();
         model.addAttribute("pedidos", pedidos);
+        model.addAttribute("isGerente", temRole("ROLE_GERENTE"));
         model.addAttribute("content", "pedidos :: content");
         log.info("Carregando fragmento: pedidos :: content");
         return "layout";
     }
 
-    // ========================
     // PRODUTOS
-    // ========================
     @GetMapping("/produtos")
     public String produtos(Model model) {
         List<Produto> produtos = produtoService.listarProdutos();
         model.addAttribute("produtos", produtos);
+        model.addAttribute("isGerenteOrAdmin", temRole("ROLE_GERENTE") || temRole("ROLE_ADMIN"));
         model.addAttribute("content", "produtos/lista :: content");
         log.info("Carregando fragmento: produtos/lista :: content");
         return "layout";
     }
 
-    // ========================
+    private boolean temRole(String authority) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated())
+            return false;
+        return auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(authority));
+    }
+
     // CLIENTES
-    // ========================
+    // ======================
     @GetMapping("/clientes")
     public String clientes(Model model) {
         List<Cliente> clientes = clienteService.listarClientes();
@@ -172,7 +190,6 @@ public class HomeController {
             redirectAttributes.addFlashAttribute("erro", "Cliente não encontrado.");
             return "redirect:/clientes";
         }
-
         model.addAttribute("content", "clientes/form :: content");
         return "layout";
     }
@@ -181,15 +198,17 @@ public class HomeController {
     public String atualizarCliente(@PathVariable String id,
             @ModelAttribute Cliente cliente,
             RedirectAttributes redirectAttributes) {
-        cliente.setId(id);
-        clienteService.salvar(cliente);
-        redirectAttributes.addFlashAttribute("sucesso", "Cliente atualizado com sucesso!");
+        try {
+            cliente.setId(id);
+            clienteService.salvar(cliente);
+            redirectAttributes.addFlashAttribute("sucesso", "Cliente atualizado com sucesso!");
+        } catch (DominioException e) {
+            redirectAttributes.addFlashAttribute("erro", e.getMessage());
+        }
         return "redirect:/clientes";
     }
 
-    // ========================
     // OUTRAS ROTAS
-    // ========================
     @GetMapping("/configuracoes")
     public String configuracoes(Model model) {
         model.addAttribute("content", "configuracoes :: content");
