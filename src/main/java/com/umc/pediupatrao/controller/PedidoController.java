@@ -12,10 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.umc.pediupatrao.dto.CancelamentoRequest;
+import com.umc.pediupatrao.dto.DescontoRequest;
 import com.umc.pediupatrao.dto.PedidoRequest;
 import com.umc.pediupatrao.entity.Pedido;
 import com.umc.pediupatrao.entity.enums.EventoPedido;
-import com.umc.pediupatrao.exception.TransicaoInvalidaException;
 import com.umc.pediupatrao.service.PedidoService;
 
 import jakarta.validation.Valid;
@@ -48,29 +49,27 @@ public class PedidoController {
         return pedidoService.criarPedido(request);
     }
 
+    // Ex.: PUT /api/pedidos/{id}/status?evento=INICIAR_PREPARO
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ATENDENTE','GERENTE','ADMIN')")
     public Pedido processarEvento(@PathVariable String id,
             @RequestParam EventoPedido evento) {
-
-        if (evento == EventoPedido.CANCELAR) {
-            throw new TransicaoInvalidaException(
-                    "Use POST /api/pedidos/{id}/cancelar para cancelar o pedido");
-        }
         return pedidoService.processarEvento(id, evento);
     }
 
+    // Body: {"percentual": 10}
     @PostMapping("/{id}/desconto")
     @PreAuthorize("hasRole('GERENTE')")
     public Pedido aplicarDesconto(@PathVariable String id,
-            @RequestParam Double percentual) {
-        return pedidoService.aplicarDesconto(id, percentual);
+            @Valid @RequestBody DescontoRequest request) {
+        return pedidoService.aplicarDesconto(id, request.getPercentual());
     }
 
+    // Body: {"justificativa": "Cliente desistiu"}
     @PostMapping("/{id}/cancelar")
     @PreAuthorize("hasRole('GERENTE')")
     public Pedido cancelar(@PathVariable String id,
-            @RequestParam String justificativa) {
-        return pedidoService.cancelar(id, justificativa);
+            @Valid @RequestBody CancelamentoRequest request) {
+        return pedidoService.cancelar(id, request.getJustificativa());
     }
 }

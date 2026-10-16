@@ -3,13 +3,17 @@ package com.umc.pediupatrao.controller;
 import com.umc.pediupatrao.entity.Cliente;
 import com.umc.pediupatrao.service.ClienteService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 @RestController
 @RequestMapping("/api/clientes")
+@PreAuthorize("hasAnyRole('ATENDENTE','GERENTE','ADMIN')")
 public class ClienteController {
 
     @Autowired
@@ -28,6 +32,7 @@ public class ClienteController {
 
     @PostMapping
     public ResponseEntity<Cliente> salvarCliente(@RequestBody Cliente cliente) {
+        cliente.setId(null);
         Cliente salvo = clienteService.salvar(cliente);
         return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
     }

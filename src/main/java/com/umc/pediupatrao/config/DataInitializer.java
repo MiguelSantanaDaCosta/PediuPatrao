@@ -1,7 +1,9 @@
 package com.umc.pediupatrao.config;
 
+import com.umc.pediupatrao.audit.AuditContext;
 import com.umc.pediupatrao.entity.Usuario;
 import com.umc.pediupatrao.entity.enums.Role;
+import com.umc.pediupatrao.entity.enums.TipoOperacao;
 import com.umc.pediupatrao.repository.UsuarioRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,7 +63,9 @@ public class DataInitializer {
         u.setUsername(username);
         u.setPassword(encoder.encode(senha));
         u.setRole(role);
-        repo.save(u);
+
+        // Sem usuário autenticado: o JaVers registra o autor como SISTEMA
+        AuditContext.run(TipoOperacao.INCLUSAO_USUARIO, null, () -> repo.save(u));
         log.info("[DataInitializer] Criado usuário bootstrap: {} ({})", username, role);
     }
 }

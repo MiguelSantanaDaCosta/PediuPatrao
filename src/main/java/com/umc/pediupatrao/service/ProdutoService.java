@@ -41,7 +41,7 @@ public class ProdutoService {
         if (repo.existsById(produto.getId())) {
             return repo.save(produto);
         }
-        throw new IllegalArgumentException("Produto não encontrado para atualização.");
+        throw new RecursoNaoEncontradoException("Produto não encontrado para atualização.");
     }
 
     public ProdutoResponse criar(ProdutoDTO dto) {

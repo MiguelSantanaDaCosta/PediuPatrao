@@ -13,20 +13,11 @@ public class MongoInitConfig implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        if (!mongoTemplate.collectionExists("pedidos")) {
-            mongoTemplate.createCollection("pedidos");
-        }
-        if (!mongoTemplate.collectionExists("clientes")) {
-            mongoTemplate.createCollection("clientes");
-        }
-        if (!mongoTemplate.collectionExists("usuarios")) {
-            mongoTemplate.createCollection("usuarios");
-        }
-        if (!mongoTemplate.collectionExists("produtos")) {
-            mongoTemplate.createCollection("produtos");
-        }
-        if (!mongoTemplate.collectionExists("horariosAtendimento")) {
-            mongoTemplate.createCollection("horariosAtendimento");
+        for (String colecao : new String[] {
+                "pedidos", "clientes", "usuarios", "produtos", "horariosAtendimento" }) {
+            if (!mongoTemplate.collectionExists(colecao)) {
+                mongoTemplate.createCollection(colecao);
+            }
         }
     }
 }
