@@ -1,8 +1,5 @@
 package com.umc.pediupatrao.entity.enums;
 
-import java.util.Map;
-import java.util.Set;
-
 public enum StatusPedido {
     RECEBIDO,
     EM_PREPARACAO,
@@ -11,20 +8,6 @@ public enum StatusPedido {
     RETIRADO,
     FINALIZADO,
     CANCELADO;
-
-    private static final Map<StatusPedido, Set<StatusPedido>> TRANSICOES = Map.of(
-        RECEBIDO,          Set.of(EM_PREPARACAO, CANCELADO),
-        EM_PREPARACAO,     Set.of(PRONTO, CANCELADO),
-        PRONTO,            Set.of(SAIU_PARA_ENTREGA, RETIRADO, CANCELADO),
-        SAIU_PARA_ENTREGA, Set.of(FINALIZADO), 
-        RETIRADO,          Set.of(FINALIZADO),
-        FINALIZADO,        Set.of(),
-        CANCELADO,         Set.of()
-    );
-
-    public boolean permiteTransicaoPara(StatusPedido novo) {
-        return TRANSICOES.getOrDefault(this, Set.of()).contains(novo);
-    }
 
     public boolean isTerminal() {
         return this == FINALIZADO || this == CANCELADO;

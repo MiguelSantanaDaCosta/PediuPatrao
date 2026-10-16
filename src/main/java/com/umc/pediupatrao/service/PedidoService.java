@@ -1,8 +1,8 @@
 package com.umc.pediupatrao.service;
 
+import com.umc.pediupatrao.audit.AuditContext;
 import com.umc.pediupatrao.dto.ItemPedidoDTO;
 import com.umc.pediupatrao.dto.PedidoRequest;
-import com.umc.pediupatrao.entity.AlteracaoCampo;
 import com.umc.pediupatrao.entity.ItemPedido;
 import com.umc.pediupatrao.entity.Pedido;
 import com.umc.pediupatrao.entity.Produto;
@@ -10,6 +10,8 @@ import com.umc.pediupatrao.entity.enums.EventoPedido;
 import com.umc.pediupatrao.entity.enums.StatusPedido;
 import com.umc.pediupatrao.entity.enums.TipoOperacao;
 import com.umc.pediupatrao.exception.DescontoInvalidoException;
+import com.umc.pediupatrao.exception.DominioException;
+import com.umc.pediupatrao.exception.JustificativaInvalidaException;
 import com.umc.pediupatrao.exception.RecursoNaoEncontradoException;
 import com.umc.pediupatrao.exception.TransicaoInvalidaException;
 import com.umc.pediupatrao.mapper.PedidoMapper;
@@ -21,12 +23,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.statemachine.StateMachine;
+import org.springframework.statemachine.StateMachineEventResult;
 import org.springframework.statemachine.config.StateMachineFactory;
 import org.springframework.statemachine.support.DefaultStateMachineContext;
-import org.springframework.statemachine.StateMachineEventResult;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
-import com.umc.pediupatrao.exception.JustificativaInvalidaException;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,24 +40,21 @@ public class PedidoService {
     private final PedidoRepository pedidoRepository;
     private final ClienteRepository clienteRepository;
     private final ProdutoRepository produtoRepository;
-    private final AuditoriaService auditoriaService;
     private final PedidoMapper mapper;
 
     public PedidoService(StateMachineFactory<StatusPedido, EventoPedido> stateMachineFactory,
                          PedidoRepository pedidoRepository,
                          ClienteRepository clienteRepository,
                          ProdutoRepository produtoRepository,
-                         AuditoriaService auditoriaService,
                          PedidoMapper mapper) {
         this.stateMachineFactory = stateMachineFactory;
         this.pedidoRepository = pedidoRepository;
         this.clienteRepository = clienteRepository;
         this.produtoRepository = produtoRepository;
-        this.auditoriaService = auditoriaService;
         this.mapper = mapper;
     }
 
-    // RN02 — criação com cálculo server-side
+    // RF02 — criação com cálculo server-side
     public Pedido criarPedido(PedidoRequest request) {
         if (!clienteRepository.existsById(request.getClienteId())) {
             throw new RecursoNaoEncontradoException("Cliente inexistente.");
@@ -63,8 +62,6 @@ public class PedidoService {
 
         Pedido pedido = mapper.toEntity(request);
 
-        // Garante que a lista de itens está materializada (defesa caso MapStruct
-        // ou algum mapeamento futuro altere o comportamento)
         if (pedido.getItens() == null) {
             pedido.setItens(new ArrayList<>());
         }
@@ -77,8 +74,9 @@ public class PedidoService {
                     .orElseThrow(() -> new RecursoNaoEncontradoException(
                             "Produto não encontrado: " + dto.getProdutoId()));
             if (Boolean.FALSE.equals(p.getAtivo())) {
-                throw new RecursoNaoEncontradoException("Produto inativo: " + p.getNome());
+                throw new DominioException("Produto inativo: " + p.getNome());
             }
+
             item.setNomeProduto(p.getNome());
             item.setPrecoUnitario(p.getPreco());
             item.recalcularSubtotal();
@@ -90,17 +88,18 @@ public class PedidoService {
         pedido.setDescontoPercentual(0.0);
         calcularTotal(pedido);
 
-        return pedidoRepository.save(pedido);
-        // JaVers intercepta automaticamente — não precisa de auditoriaService aqui
+        // JaVers registra a inclusão
+        return AuditContext.run(TipoOperacao.INCLUSAO_PEDIDO, null,
+                () -> pedidoRepository.save(pedido));
     }
 
-    // RN03 — transição via máquina de estados
+    // RF03 — transição via máquina de estados
     public Pedido processarEvento(String id, EventoPedido evento) {
-        if (evento == EventoPedido.CANCELAR){
+        if (evento == EventoPedido.CANCELAR) {
             throw new TransicaoInvalidaException(
-                    "Cancelamento deve ser feito via aplicar cancelameto"
-                    );
+                    "Cancelamento deve ser feito pelo endpoint de cancelamento (GERENTE).");
         }
+
         Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido não encontrado."));
 
@@ -116,34 +115,36 @@ public class PedidoService {
                 Mono.just(MessageBuilder.withPayload(evento).build())
         ).blockLast();
 
-        sm.stopReactively().block();
-
         boolean aceito = result != null
                 && result.getResultType() == StateMachineEventResult.ResultType.ACCEPTED;
+
+        // Lê o estado ANTES de parar a máquina
+        StatusPedido novo = sm.getState().getId();
+        sm.stopReactively().block();
 
         if (!aceito) {
             throw new TransicaoInvalidaException(
                     "Evento " + evento + " não é permitido a partir de " + anterior);
         }
 
-        StatusPedido novo = sm.getState().getId();
         pedido.setStatus(novo);
 
-        // Correção 5.5: usa o helper semântico jaSaiu() ao invés de comparações literais
         if (novo.jaSaiu()) {
             pedido.setDataHoraSaida(LocalDateTime.now());
             pedido.setResponsavelSaida(getUsuarioLogado());
         }
 
-        return pedidoRepository.save(pedido);
+        return AuditContext.run(TipoOperacao.ALTERACAO_STATUS, null,
+                () -> pedidoRepository.save(pedido));
     }
 
-    // RN04 — desconto restrito ao GERENTE
+    // RF04 — desconto restrito ao GERENTE
     @PreAuthorize("hasRole('GERENTE')")
     public Pedido aplicarDesconto(String id, Double percentual) {
         if (percentual == null || percentual < 0 || percentual > 20) {
             throw new DescontoInvalidoException("Desconto deve estar entre 0% e 20%.");
         }
+
         Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido não encontrado."));
 
@@ -152,30 +153,21 @@ public class PedidoService {
                     "Desconto não permitido após saída ou em estado terminal.");
         }
 
-        Double anterior = pedido.getDescontoPercentual();
-        Double valorAnterior = pedido.getValorTotal();
-
         pedido.setDescontoPercentual(percentual);
         calcularTotal(pedido);
-        Pedido salvo = pedidoRepository.save(pedido);
 
-        List<AlteracaoCampo> mudancas = new ArrayList<>();
-        mudancas.add(new AlteracaoCampo("descontoPercentual",
-                String.valueOf(anterior), String.valueOf(percentual)));
-        mudancas.add(new AlteracaoCampo("valorTotal",
-                String.valueOf(valorAnterior), String.valueOf(salvo.getValorTotal())));
-
-        auditoriaService.registrar(TipoOperacao.DESCONTO, "Pedido", id, mudancas, null);
-        return salvo;
+        return AuditContext.run(TipoOperacao.DESCONTO, null,
+                () -> pedidoRepository.save(pedido));
     }
 
-    // RN04 — cancelamento restrito ao GERENTE com justificativa
+    // RF04 — cancelamento restrito ao GERENTE com justificativa
     @PreAuthorize("hasRole('GERENTE')")
     public Pedido cancelar(String id, String justificativa) {
         if (justificativa == null || justificativa.trim().length() < 5) {
             throw new JustificativaInvalidaException(
                     "Justificativa é obrigatória (mínimo 5 caracteres).");
         }
+
         Pedido pedido = pedidoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido não encontrado."));
 
@@ -184,18 +176,12 @@ public class PedidoService {
                     "Pedido já saiu ou está em estado terminal; não pode ser cancelado.");
         }
 
-        StatusPedido anterior = pedido.getStatus();
+        String just = justificativa.trim();
         pedido.setStatus(StatusPedido.CANCELADO);
-        pedido.setJustificativaCancelamento(justificativa);
+        pedido.setJustificativaCancelamento(just);
 
-        Pedido salvo = pedidoRepository.save(pedido);
-
-        auditoriaService.registrar(
-                TipoOperacao.CANCELAMENTO, "Pedido", id,
-                List.of(new AlteracaoCampo("status",
-                        String.valueOf(anterior), "CANCELADO")),
-                justificativa);
-        return salvo;
+        return AuditContext.run(TipoOperacao.CANCELAMENTO, just,
+                () -> pedidoRepository.save(pedido));
     }
 
     public List<Pedido> listarPedidos() {
@@ -222,6 +208,10 @@ public class PedidoService {
 
     private String getUsuarioLogado() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return (auth != null && auth.isAuthenticated()) ? auth.getName() : "SISTEMA";
+        if (auth == null || !auth.isAuthenticated()
+                || "anonymousUser".equals(auth.getPrincipal())) {
+            return "SISTEMA";
+        }
+        return auth.getName();
     }
 }
