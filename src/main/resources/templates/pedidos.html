@@ -1,77 +1,311 @@
-<!DOCTYPE html>
+<!doctype html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
-    <title>Lista de Pedidos</title>
-</head>
-<body>
-
-<div th:fragment="content">
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
+  <head>
+    <title>Pedidos</title>
+  </head>
+  <body>
+    <div th:fragment="content">
+      <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold mb-0">
-            <i class="bi bi-bag me-2 text-primary"></i>Pedidos
+          <i class="bi bi-bag me-2 text-primary"></i>Pedidos
         </h2>
-    </div>
+      </div>
 
-    <!-- Mensagens de feedback -->
-    <div class="alert alert-success alert-dismissible fade show" th:if="${sucesso}" role="alert">
+      <div
+        class="alert alert-success alert-dismissible fade show"
+        th:if="${sucesso}"
+        role="alert"
+      >
         <i class="bi bi-check-circle-fill me-2"></i>
         <span th:text="${sucesso}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <div class="alert alert-danger alert-dismissible fade show" th:if="${erro}" role="alert">
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="alert"
+        ></button>
+      </div>
+      <div
+        class="alert alert-danger alert-dismissible fade show"
+        th:if="${erro}"
+        role="alert"
+      >
         <i class="bi bi-exclamation-triangle-fill me-2"></i>
         <span th:text="${erro}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="alert"
+        ></button>
+      </div>
 
-    <!-- Tabela -->
-    <div class="card shadow-sm">
+      <div class="card shadow-sm">
         <div class="card-body p-0">
+          <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th class="ps-4">ID</th>
-                        <th>Cliente ID</th>
-                        <th>Tipo de Pizza</th>
-                        <th>Sabor</th>
-                        <th>Quantidade</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Lista vazia -->
-                    <tr th:if="${#lists.isEmpty(pedidos)}">
-                        <td colspan="6" class="text-center text-muted py-5">
-                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
-                            Nenhum pedido encontrado.
-                        </td>
-                    </tr>
-                    <!-- Linhas -->
-                    <tr th:each="pedido : ${pedidos}">
-                        <td class="ps-4 text-muted" th:text="${pedido.id}"></td>
-                        <td th:text="${pedido.clienteId}"></td>
-                        <td th:text="${pedido.tipoPizza}"></td>
-                        <td th:text="${pedido.sabor}"></td>
-                        <td th:text="${pedido.quantidade}"></td>
-                        <td>
-                            <span class="badge"
-                                  th:classappend="${pedido.status == 'ENTREGUE'} ? 'bg-success' :
-                                                  (${pedido.status == 'CANCELADO'} ? 'bg-danger' :
-                                                  (${pedido.status == 'EM_PREPARO'} ? 'bg-warning text-dark' : 'bg-secondary'))"
-                                  th:text="${pedido.status}">
-                            </span>
-                        </td>
-                    </tr>
-                </tbody>
+              <thead class="table-dark">
+                <tr>
+                  <th class="ps-4">ID</th>
+                  <th>Cliente</th>
+                  <th>Itens</th>
+                  <th>Entrada</th>
+                  <th>Status</th>
+                  <th class="text-end">Bruto</th>
+                  <th class="text-end">Desc.</th>
+                  <th class="text-end">Total</th>
+                  <th>Responsável</th>
+                  <th class="text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr th:if="${#lists.isEmpty(pedidos)}">
+                  <td colspan="10" class="text-center text-muted py-5">
+                    <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                    Nenhum pedido encontrado.
+                  </td>
+                </tr>
+                <tr th:each="pedido : ${pedidos}">
+                  <td
+                    class="ps-4 text-muted small"
+                    th:text="${#strings.abbreviate(pedido.id, 8)}"
+                  ></td>
+                  <td th:text="${pedido.clienteId}"></td>
+                  <td>
+                    <ul class="list-unstyled mb-0 small">
+                      <li th:each="item : ${pedido.itens}">
+                        <span
+                          class="badge bg-light text-dark me-1"
+                          th:text="${item.quantidade} + 'x'"
+                          >1x</span
+                        >
+                        <span th:text="${item.nomeProduto}">Produto</span>
+                      </li>
+                    </ul>
+                  </td>
+                  <td class="small">
+                    <span
+                      th:if="${pedido.dataHoraEntrada}"
+                      th:text="${#temporals.format(pedido.dataHoraEntrada, 'dd/MM/yy HH:mm')}"
+                      >--</span
+                    >
+                  </td>
+                  <td>
+                    <span
+                      class="badge"
+                      th:classappend="${pedido.status.name() == 'RECEBIDO'} ? 'bg-secondary' :
+                                                     (${pedido.status.name() == 'EM_PREPARACAO'} ? 'bg-warning text-dark' :
+                                                     (${pedido.status.name() == 'PRONTO'} ? 'bg-info text-dark' :
+                                                     (${pedido.status.name() == 'SAIU_PARA_ENTREGA'} ? 'bg-primary' :
+                                                     (${pedido.status.name() == 'RETIRADO'} ? 'bg-primary' :
+                                                     (${pedido.status.name() == 'FINALIZADO'} ? 'bg-success' : 'bg-danger')))))"
+                      th:text="${pedido.status}"
+                      >STATUS</span
+                    >
+                  </td>
+                  <td
+                    class="text-end"
+                    th:text="'R$ ' + ${#numbers.formatDecimal(pedido.valorBruto != null ? pedido.valorBruto : 0, 1, 'COMMA', 2, 'POINT')}"
+                  ></td>
+                  <td
+                    class="text-end"
+                    th:text="${pedido.descontoPercentual != null ? pedido.descontoPercentual : 0} + '%'"
+                  ></td>
+                  <td
+                    class="text-end fw-bold"
+                    th:text="'R$ ' + ${#numbers.formatDecimal(pedido.valorTotal != null ? pedido.valorTotal : 0, 1, 'COMMA', 2, 'POINT')}"
+                  ></td>
+                  <td
+                    class="small"
+                    th:text="${pedido.responsavelRegistro}"
+                  ></td>
+                  <td class="text-center">
+                    <div class="btn-group btn-group-sm" role="group">
+                      <!-- RECEBIDO → EM_PREPARACAO -->
+                      <button
+                        th:if="${pedido.status.name() == 'RECEBIDO'}"
+                        class="btn btn-outline-warning"
+                        th:attr="data-pedido-id=${pedido.id}, data-evento='INICIAR_PREPARO'"
+                        onclick="processarEvento(this)"
+                        title="Iniciar preparo"
+                      >
+                        <i class="bi bi-fire"></i>
+                      </button>
+                      <!-- EM_PREPARACAO → PRONTO -->
+                      <button
+                        th:if="${pedido.status.name() == 'EM_PREPARACAO'}"
+                        class="btn btn-outline-info"
+                        th:attr="data-pedido-id=${pedido.id}, data-evento='MARCAR_PRONTO'"
+                        onclick="processarEvento(this)"
+                        title="Marcar pronto"
+                      >
+                        <i class="bi bi-check2-circle"></i>
+                      </button>
+                      <!-- PRONTO → SAIU_PARA_ENTREGA -->
+                      <button
+                        th:if="${pedido.status.name() == 'PRONTO'}"
+                        class="btn btn-outline-primary"
+                        th:attr="data-pedido-id=${pedido.id}, data-evento='DESPACHAR'"
+                        onclick="processarEvento(this)"
+                        title="Despachar entrega"
+                      >
+                        <i class="bi bi-truck"></i>
+                      </button>
+                      <!-- PRONTO → RETIRADO -->
+                      <button
+                        th:if="${pedido.status.name() == 'PRONTO'}"
+                        class="btn btn-outline-primary"
+                        th:attr="data-pedido-id=${pedido.id}, data-evento='CONFIRMAR_RETIRADA'"
+                        onclick="processarEvento(this)"
+                        title="Retirado no balcão"
+                      >
+                        <i class="bi bi-bag-check"></i>
+                      </button>
+                      <!-- SAIU / RETIRADO → FINALIZADO -->
+                      <button
+                        th:if="${pedido.status.name() == 'SAIU_PARA_ENTREGA' or pedido.status.name() == 'RETIRADO'}"
+                        class="btn btn-outline-success"
+                        th:attr="data-pedido-id=${pedido.id}, data-evento='FINALIZAR'"
+                        onclick="processarEvento(this)"
+                        title="Finalizar"
+                      >
+                        <i class="bi bi-flag"></i>
+                      </button>
+                      <!-- DESCONTO — apenas GERENTE, antes da saída -->
+                      <button
+                        th:if="${isGerente == true
+                                                 and pedido.status.name() != 'FINALIZADO'
+                                                 and pedido.status.name() != 'CANCELADO'
+                                                 and pedido.status.name() != 'SAIU_PARA_ENTREGA'
+                                                 and pedido.status.name() != 'RETIRADO'}"
+                        class="btn btn-outline-dark"
+                        th:attr="data-pedido-id=${pedido.id}"
+                        onclick="aplicarDesconto(this)"
+                        title="Aplicar desconto"
+                      >
+                        <i class="bi bi-percent"></i>
+                      </button>
+                      <!-- CANCELAR — apenas GERENTE, antes da saída -->
+                      <button
+                        th:if="${isGerente == true
+                                                 and pedido.status.name() != 'FINALIZADO'
+                                                 and pedido.status.name() != 'CANCELADO'
+                                                 and pedido.status.name() != 'SAIU_PARA_ENTREGA'
+                                                 and pedido.status.name() != 'RETIRADO'}"
+                        class="btn btn-outline-danger"
+                        th:attr="data-pedido-id=${pedido.id}"
+                        onclick="cancelarPedido(this)"
+                        title="Cancelar pedido"
+                      >
+                        <i class="bi bi-x-circle"></i>
+                      </button>
+                    </div>
+                    <div
+                      th:if="${pedido.status.name() == 'CANCELADO'}"
+                      class="small text-danger mt-1"
+                    >
+                      <i class="bi bi-info-circle"></i>
+                      <span th:text="${pedido.justificativaCancelamento}"
+                        >justificativa</span
+                      >
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
             </table>
+          </div>
         </div>
-        <div class="card-footer text-muted small" th:if="${!#lists.isEmpty(pedidos)}">
-            Total: <strong th:text="${#lists.size(pedidos)}"></strong> pedido(s)
+        <div
+          class="card-footer text-muted small"
+          th:if="${!#lists.isEmpty(pedidos)}"
+        >
+          Total: <strong th:text="${#lists.size(pedidos)}"></strong> pedido(s)
         </div>
+      </div>
+
+      <script>
+        async function processarEvento(btn) {
+          const id = btn.getAttribute("data-pedido-id");
+          const evento = btn.getAttribute("data-evento");
+          if (!confirm('Confirmar "' + evento + '" no pedido ' + id + "?"))
+            return;
+          try {
+            const resp = await fetch(
+              "/api/pedidos/" + id + "/status?evento=" + evento,
+              {
+                method: "PUT",
+                headers: { Accept: "application/json" },
+              },
+            );
+            if (!resp.ok) {
+              const erro = await resp.json().catch(() => ({}));
+              alert("Erro: " + (erro.mensagem || resp.status));
+              return;
+            }
+            location.reload();
+          } catch (e) {
+            alert("Falha na comunicação: " + e.message);
+          }
+        }
+
+        async function aplicarDesconto(btn) {
+          const id = btn.getAttribute("data-pedido-id");
+          const p = prompt("Percentual de desconto (0 a 20):", "10");
+          if (p === null) return;
+          const percentual = parseFloat(p);
+          if (isNaN(percentual) || percentual < 0 || percentual > 20) {
+            alert("Percentual inválido. Deve estar entre 0 e 20.");
+            return;
+          }
+          try {
+            const resp = await fetch("/api/pedidos/" + id + "/desconto", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify({ percentual: percentual }),
+            });
+            if (!resp.ok) {
+              const erro = await resp.json().catch(() => ({}));
+              alert("Erro: " + (erro.mensagem || resp.status));
+              return;
+            }
+            location.reload();
+          } catch (e) {
+            alert("Falha na comunicação: " + e.message);
+          }
+        }
+
+        async function cancelarPedido(btn) {
+          const id = btn.getAttribute("data-pedido-id");
+          const justificativa = prompt(
+            "Justificativa do cancelamento (mín. 5 caracteres):",
+            "",
+          );
+          if (justificativa === null) return;
+          if (justificativa.trim().length < 5) {
+            alert("Justificativa muito curta.");
+            return;
+          }
+          try {
+            const resp = await fetch("/api/pedidos/" + id + "/cancelar", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify({ justificativa: justificativa }),
+            });
+            if (!resp.ok) {
+              const erro = await resp.json().catch(() => ({}));
+              alert("Erro: " + (erro.mensagem || resp.status));
+              return;
+            }
+            location.reload();
+          } catch (e) {
+            alert("Falha na comunicação: " + e.message);
+          }
+        }
+      </script>
     </div>
-
-</div>
-
-</body>
+  </body>
 </html>
