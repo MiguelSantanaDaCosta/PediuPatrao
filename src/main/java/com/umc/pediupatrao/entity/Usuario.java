@@ -1,5 +1,6 @@
 package com.umc.pediupatrao.entity;
 
+import org.javers.core.metamodel.annotation.DiffIgnore;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -8,8 +9,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import com.umc.pediupatrao.entity.enums.Role;
-
-
 
 @Document(collection = "usuarios")
 @Getter
@@ -23,6 +22,7 @@ public class Usuario {
     @Indexed(unique = true)
     private String username;
 
+    @DiffIgnore // nunca vai para a auditoria
     private String password;
 
     private Role role;
