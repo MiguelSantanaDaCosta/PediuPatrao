@@ -1,0 +1,16 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: pediupatrao-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - pediupatrao-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pediupatrao-mongo-data:
